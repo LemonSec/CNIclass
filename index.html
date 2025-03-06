@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Threat Hydroelectric Dam Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Use viewport height */
+            width: 100vw; /* Use viewport width */
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden; /* Prevent scrolling */
+            min-height: 0; /* Allow container to shrink */
+        }
+        .animation-container {
+            flex: 1;
+            position: relative;
+            height: 100%;
+            min-width: 0; /* Allow container to shrink */
+        }
+        .hmi-container {
+            width: 40%; /* Use percentage instead of fixed width */
+            max-width: 800px; /* Maximum width */
+            min-width: 300px; /* Minimum width */
+            height: 100%;
+            background-color: rgba(204, 204, 204, 0.9);
+            padding: 20px;
+            box-sizing: border-box;
+            border-radius: 10px 0 0 10px;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .hmi-section {
+            margin-bottom: 15px;
+        }
+        .gauge-container {
+            text-align: center;
+        }
+        .gauge-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .slider-container {
+            margin-top: 10px;
+        }
+        .slider-label {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .slider {
+            width: 100%;
+        }
+        .hack-panel {
+            height: 60px;
+            min-height: 60px; /* Ensure minimum height */
+            background-color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+        }
+        .hack-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-right: 20px;
+            color: white;
+        }
+        .hack-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .hack-button {
+            padding: 8px 15px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .hack-button:hover {
+            background-color: #d32f2f;
+        }
+        .hack-button:disabled {
+            background-color: #888888;
+            cursor: not-allowed;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .active-hack {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        .gauges-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        .gauge-column {
+            flex: 1;
+            padding: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="active-hack" class="active-hack" style="display: none;"></div>
+    
+    <div class="main-container">
+        <div class="animation-container">
+            <div id="info">Red Threat Hydroelectric Dam Simulator</div>
+            <canvas id="renderCanvas"></canvas>
+        </div>
+        
+        <div id="hmiContainer" class="hmi-container">
+            <div style="text-align: center; font-weight: bold; font-size: 24px; margin-bottom: 20px;">
+                Dam Control System HMI
+            </div>
+            
+            <div class="gauges-row">
+                <div class="gauge-column">
+                    <div class="hmi-section">
+                        <div class="section-title">Upstream Level</div>
+                        <div class="gauge-container">
+                            <canvas id="upstreamLevelGauge" width="150" height="150"></canvas>
+                            <div id="upstreamLevelValue" class="gauge-value">180.0 m</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="gauge-column">
+                    <div class="hmi-section">
+                        <div class="section-title">Downstream Level</div>
+                        <div class="gauge-container">
+                            <canvas id="downstreamLevelGauge" width="150" height="150"></canvas>
+                            <div id="downstreamLevelValue" class="gauge-value">30.0 m</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="gauges-row">
+                <div class="gauge-column">
+                    <div class="hmi-section">
+                        <div class="section-title">Flow Rate</div>
+                        <div class="gauge-container">
+                            <canvas id="flowRateGauge" width="150" height="150"></canvas>
+                            <div id="flowRateValue" class="gauge-value">500.0 m³/s</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="gauge-column">
+                    <div class="hmi-section">
+                        <div class="section-title">Power Generation</div>
+                        <div class="gauge-container">
+                            <canvas id="powerGenGauge" width="150" height="150"></canvas>
+                            <div id="powerGenValue" class="gauge-value">0.0 MW</div>
+                            <div id="turbineWarning" style="color: red; font-weight: bold; display: none; margin-top: 5px;">WARNING: TURBINE OVERLOAD</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hmi-section">
+                <div class="section-title">Gate Control</div>
+                <div class="slider-container">
+                    <div id="gatePositionLabel" class="slider-label">Gate Position: 50%</div>
+                    <input id="gateSlider" type="range" min="0" max="1" step="0.01" value="0.5" class="slider">
+                </div>
+            </div>
+            
+            <div class="hmi-section">
+                <div class="section-title">Spillway Control</div>
+                <div class="slider-container">
+                    <div id="spillwayPositionLabel" class="slider-label">Spillway Position: 0%</div>
+                    <input id="spillwaySlider" type="range" min="0" max="1" step="0.01" value="0.0" class="slider">
+                </div>
+            </div>
+            
+            <div class="hmi-section" id="floodWarningSection" style="display: none; background-color: #ffdddd; padding: 10px; border-radius: 5px; margin-top: 15px;">
+                <div style="color: red; font-weight: bold; text-align: center; font-size: 16px;">
+                    ⚠️ FLOOD WARNING ⚠️
+                </div>
+                <div id="floodWarningText" style="margin-top: 5px; text-align: center;">
+                    Town at risk of flooding!
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="hack-panel">
+        <div class="hack-title">Hacking Scenarios:</div>
+        <div class="hack-buttons">
+            <button id="floodingButton" class="hack-button">Flood</button>
+            <button id="reducedFlowButton" class="hack-button">Blackout</button>
+            <button id="turbineButton" class="hack-button">Flood and Blackout</button>
+            <button id="tamperingButton" class="hack-button">Data Tampering</button>
+        </div>
+    </div>
+
+    <script>
+        // Simulation parameters
+        const params = {
+            upstreamLevel: 180, // meters - upstream water level (reservoir)
+            downstreamLevel: 30, // meters - downstream water level
+            gatePosition: 0.5, // 0-1
+            maxFlowRate: 1000, // m³/s
+            inflow: 500, // m³/s
+            baseArea: 10000, // m²
+            turbineSpeed: 0,
+            powerGeneration: 0,
+            maxUpstreamLevel: 200, // maximum upstream water level
+            minUpstreamLevel: 150, // minimum upstream water level
+            maxDownstreamLevel: 60, // maximum downstream water level
+            minDownstreamLevel: 10,  // minimum downstream water level
+            spillwayPosition: 0.0, // 0-1 (new spillway control)
+            totalFlowPercentage: 50, // Combined percentage of gate + spillway
+            isPowerOutage: false, // Flag for power outage state
+            powerLineNodes: [], // Array to store power line nodes
+            powerLineLights: [], // Array to store power line lights
+            scaleFactor: 1.0,
+            aspectRatio: 16/9, // Default aspect ratio
+        };
+
+        // Hacking scenario flags
+        let isFloodingAttackActive = false;
+        let isReducedFlowAttackActive = false;
+        let isTurbineManipulationActive = false;
+        let isDataTamperingActive = false;
+
+        // Time tracking
+        let lastTime = Date.now();
+        
+        // Canvas and context
+        const canvas = document.getElementById('renderCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Resize canvas to fill animation container with proper scaling
+        function resizeCanvas() {
+            const container = document.querySelector('.animation-container');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            // Set canvas dimensions
+            canvas.width = containerWidth;
+            canvas.height = containerHeight;
+            
+            // Calculate scale factor based on original design size (1600x900 as reference)
+            const referenceWidth = 1600;
+            const referenceHeight = 900;
+            
+            const horizontalScale = containerWidth / referenceWidth;
+            const verticalScale = containerHeight / referenceHeight;
+            
+            // Use the smaller scale to ensure everything fits
+            params.scaleFactor = Math.min(horizontalScale, verticalScale);
+            
+            // Also resize HMI gauges to fit available space
+            resizeGauges();
+        }
+        
+        // Resize gauge canvases based on available space
+        function resizeGauges() {
+            const gaugeCanvases = document.querySelectorAll('.gauge-container canvas');
+            const gaugeColumn = document.querySelector('.gauge-column');
+            
+            if (gaugeColumn) {
+                const availableWidth = gaugeColumn.clientWidth;
+                const gaugeSize = Math.min(150, availableWidth - 20); // Max 150px or available width minus padding
+                
+                gaugeCanvases.forEach(canvas => {
+                    canvas.width = gaugeSize;
+                    canvas.height = gaugeSize;
+                });
+            }
+        }
+        
+        // Dam dimensions
+        const damWidth = 200;
+        const damHeight = 300; // 3x taller
+        
+        // Water dimensions
+        const reservoirWidth = 300;
+        const reservoirLength = 300; // Reduced from 600 to 300
+        const downstreamLength = 300; // Shorter downstream water length to make room for town
+        
+        // Town parameters
+        const townWidth = 400;
+        const townHeight = 100;
+        const houseCount = 6;
+        const houses = [];
+        
+        // Initialize houses
+        function initHouses() {
+            houses.length = 0; // Clear any existing houses
+            
+            // House properties
+            const houseWidth = 40;
+            const houseHeight = 50;
+            const roofHeight = 20;
+            const spacing = townWidth / (houseCount + 1);
+            
+            // Create houses with varied heights and widths
+            for (let i = 0; i < houseCount; i++) {
+                const widthVariation = Math.random() * 10 - 5;
+                const heightVariation = Math.random() * 15 - 5;
+                
+                houses.push({
+                    width: houseWidth + widthVariation,
+                    height: houseHeight + heightVariation,
+                    roofHeight: roofHeight + (heightVariation / 3),
+                    x: spacing * (i + 1) - (houseWidth / 2),
+                    color: `rgb(${180 + Math.random() * 50}, ${100 + Math.random() * 50}, ${100 + Math.random() * 50})`,
+                    roofColor: `rgb(${100 + Math.random() * 50}, ${50 + Math.random() * 30}, ${50 + Math.random() * 30})`,
+                    windowColor: `rgba(${200 + Math.random() * 55}, ${200 + Math.random() * 55}, ${100 + Math.random() * 155}, 0.8)`,
+                    flooded: false,
+                    hasLight: true, // Whether house has power
+                    outdoorLightLeft: {
+                        x: 0.15, // Left side of house
+                        y: 0.85, // Upper part of house
+                        isOn: true,
+                        flickerState: Math.random() > 0.5
+                    },
+                    outdoorLightRight: {
+                        x: 0.85, // Right side of house
+                        y: 0.85, // Upper part of house
+                        isOn: true,
+                        flickerState: Math.random() > 0.5
+                    }
+                });
+            }
+            
+            // Initialize power lines
+            initPowerLines();
+        }
+        
+        // Initialize power lines
+        function initPowerLines() {
+            params.powerLineNodes = [];
+            
+            // Create power line nodes (poles)
+            const poleCount = 5; // Number of poles between dam and town
+            // Use fixed values for initialization since damCenterX isn't defined yet
+            // These will be dynamically updated during rendering
+            const startX = 633; // Approximate value for power house position
+            const endX = 953; // Approximate value for town start position
+            const poleSpacing = (endX - startX) / (poleCount - 1);
+            
+            // Create poles
+            for (let i = 0; i < poleCount; i++) {
+                params.powerLineNodes.push({
+                    x: startX + poleSpacing * i,
+                    height: 80 + Math.random() * 10 // Slight height variation
+                });
+            }
+            
+            // Return the array of poles for global access
+            return params.powerLineNodes;
+        }
+        
+        // Camera/view parameters
+        let cameraAngle = Math.PI / 4; // 45 degrees
+        let cameraHeight = 200;
+        let cameraDistance = 400;
+        
+        // Power line poles
+        let powerLinePoles = [];
+        
+        // Initialize the simulation
+        init();
+        animate();
+
+        function init() {
+            // Initialize houses
+            initHouses();
+            
+            // Initialize power lines
+            powerLinePoles = initPowerLines();
+            
+            // Set up event listeners
+            window.addEventListener('resize', onWindowResize);
+            
+            // Set up UI controls
+            document.getElementById('gateSlider').addEventListener('input', function() {
+                if (!isFloodingAttackActive && !isReducedFlowAttackActive) {
+                    params.gatePosition = parseFloat(this.value);
+                    document.getElementById('gatePositionLabel').textContent = 
+                        `Gate Position: ${Math.round(params.gatePosition * 100)}%`;
+                    updateFloodWarning();
+                }
+            });
+            
+            document.getElementById('spillwaySlider').addEventListener('input', function() {
+                params.spillwayPosition = parseFloat(this.value);
+                document.getElementById('spillwayPositionLabel').textContent = 
+                    `Spillway Position: ${Math.round(params.spillwayPosition * 100)}%`;
+                updateFloodWarning();
+            });
+            
+            // Set up hack buttons
+            document.getElementById('floodingButton').addEventListener('click', function() {
+                if (!isFloodingAttackActive) {
+                    startFloodingAttack();
+                    disableAllHackButtons();
+                    showActiveHack("FLOODING ATTACK IN PROGRESS");
+                    setTimeout(() => {
+                        stopFloodingAttack();
+                        enableAllHackButtons();
+                        hideActiveHack();
+                    }, 10000);
+                }
+            });
+            
+            document.getElementById('reducedFlowButton').addEventListener('click', function() {
+                if (!isReducedFlowAttackActive) {
+                    startReducedFlowAttack();
+                    disableAllHackButtons();
+                    showActiveHack("BLACKOUT ATTACK IN PROGRESS");
+                    setTimeout(() => {
+                        stopReducedFlowAttack();
+                        enableAllHackButtons();
+                        hideActiveHack();
+                    }, 10000);
+                }
+            });
+            
+            document.getElementById('turbineButton').addEventListener('click', function() {
+                if (!isTurbineManipulationActive) {
+                    startTurbineManipulation();
+                    disableAllHackButtons();
+                    showActiveHack("FLOOD AND BLACKOUT ATTACK IN PROGRESS");
+                    setTimeout(() => {
+                        stopTurbineManipulation();
+                        enableAllHackButtons();
+                        hideActiveHack();
+                    }, 10000);
+                }
+            });
+            
+            document.getElementById('tamperingButton').addEventListener('click', function() {
+                if (!isDataTamperingActive) {
+                    startDataTampering();
+                    disableAllHackButtons();
+                    showActiveHack("DATA TAMPERING ATTACK IN PROGRESS");
+                    setTimeout(() => {
+                        stopDataTampering();
+                        enableAllHackButtons();
+                        hideActiveHack();
+                    }, 10000);
+                }
+            });
+            
+            // Add mouse controls for rotating the view
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            
+            canvas.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+            
+            canvas.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    
+                    cameraAngle += deltaX * 0.01;
+                    cameraHeight = Math.max(50, Math.min(400, cameraHeight - deltaY));
+                    
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+            
+            canvas.addEventListener('mouseup', function() {
+                isDragging = false;
+            });
+            
+            // Add mouse wheel for zoom
+            canvas.addEventListener('wheel', function(e) {
+                cameraDistance = Math.max(200, Math.min(800, cameraDistance + e.deltaY * 0.5));
+                e.preventDefault();
+            });
+        }
+
+        function showActiveHack(message) {
+            const activeHackElement = document.getElementById('active-hack');
+            activeHackElement.textContent = message;
+            activeHackElement.style.display = 'block';
+        }
+
+        function hideActiveHack() {
+            const activeHackElement = document.getElementById('active-hack');
+            activeHackElement.style.display = 'none';
+        }
+
+        function disableAllHackButtons() {
+            document.getElementById('floodingButton').disabled = true;
+            document.getElementById('reducedFlowButton').disabled = true;
+            document.getElementById('turbineButton').disabled = true;
+            document.getElementById('tamperingButton').disabled = true;
+        }
+
+        function enableAllHackButtons() {
+            document.getElementById('floodingButton').disabled = false;
+            document.getElementById('reducedFlowButton').disabled = false;
+            document.getElementById('turbineButton').disabled = false;
+            document.getElementById('tamperingButton').disabled = false;
+        }
+
+        // Hacking scenario functions
+        function startFloodingAttack() {
+            isFloodingAttackActive = true;
+            
+            // Set both gate and spillway to 100%
+            params.gatePosition = 1.0;
+            params.spillwayPosition = 1.0;
+            
+            // Update UI sliders and labels
+            document.getElementById('gateSlider').value = 1.0;
+            document.getElementById('gatePositionLabel').textContent = `Gate Position: 100%`;
+            
+            document.getElementById('spillwaySlider').value = 1.0;
+            document.getElementById('spillwayPositionLabel').textContent = `Spillway Position: 100%`;
+            
+            // Update flood warning based on new combined flow
+            updateFloodWarning();
+            
+            // Add a message about town flooding
+            showActiveHack("FLOODING ATTACK IN PROGRESS - TOWN ENDANGERED");
+        }
+
+        function stopFloodingAttack() {
+            isFloodingAttackActive = false;
+            
+            // Reset both gate and spillway to 50% and 0%
+            params.gatePosition = 0.5;
+            params.spillwayPosition = 0.0;
+            
+            // Update UI sliders and labels
+            document.getElementById('gateSlider').value = 0.5;
+            document.getElementById('gatePositionLabel').textContent = `Gate Position: 50%`;
+            
+            document.getElementById('spillwaySlider').value = 0.0;
+            document.getElementById('spillwayPositionLabel').textContent = `Spillway Position: 0%`;
+            
+            // Update flood warning
+            updateFloodWarning();
+        }
+
+        function startReducedFlowAttack() {
+            isReducedFlowAttackActive = true;
+            params.gatePosition = 0.0;
+            document.getElementById('gateSlider').value = 0.0;
+            document.getElementById('gatePositionLabel').textContent = `Gate Position: 0%`;
+        }
+
+        function stopReducedFlowAttack() {
+            isReducedFlowAttackActive = false;
+            params.gatePosition = 0.5;
+            document.getElementById('gateSlider').value = 0.5;
+            document.getElementById('gatePositionLabel').textContent = `Gate Position: 50%`;
+        }
+
+        function startTurbineManipulation() {
+            isTurbineManipulationActive = true;
+            
+            // Set gate position to 35% (causes power outage since it's below 40%)
+            params.gatePosition = 0.35;
+            document.getElementById('gateSlider').value = 0.35;
+            document.getElementById('gatePositionLabel').textContent = `Gate Position: 35%`;
+            
+            // Set spillway position to 100% (causes flooding)
+            params.spillwayPosition = 1.0;
+            document.getElementById('spillwaySlider').value = 1.0;
+            document.getElementById('spillwayPositionLabel').textContent = `Spillway Position: 100%`;
+            
+            // Update flood warning based on new combined flow
+            updateFloodWarning();
+        }
+
+        function stopTurbineManipulation() {
+            isTurbineManipulationActive = false;
+            
+            // Reset gate position to 50%
+            params.gatePosition = 0.5;
+            document.getElementById('gateSlider').value = 0.5;
+            document.getElementById('gatePositionLabel').textContent = `Gate Position: 50%`;
+            
+            // Reset spillway position to 0%
+            params.spillwayPosition = 0.0;
+            document.getElementById('spillwaySlider').value = 0.0;
+            document.getElementById('spillwayPositionLabel').textContent = `Spillway Position: 0%`;
+            
+            // Update flood warning
+            updateFloodWarning();
+        }
+
+        function startDataTampering() {
+            isDataTamperingActive = true;
+        }
+
+        function stopDataTampering() {
+            isDataTamperingActive = false;
+        }
+
+        // Function to update flood warning based on gate and spillway positions
+        function updateFloodWarning() {
+            const gatePercent = params.gatePosition * 100;
+            const spillwayPercent = params.spillwayPosition * 100;
+            const totalPercent = gatePercent + spillwayPercent;
+            params.totalFlowPercentage = totalPercent;
+            
+            const warningSection = document.getElementById('floodWarningSection');
+            const warningText = document.getElementById('floodWarningText');
+            
+            if (gatePercent >= 98 || spillwayPercent >= 98 || totalPercent > 98) {
+                warningSection.style.display = 'block';
+                
+                if (totalPercent > 140) {
+                    warningText.textContent = 'SEVERE FLOODING! Town completely underwater!';
+                    warningSection.style.backgroundColor = '#ff8888';
+                } else {
+                    warningText.textContent = 'Town at risk of flooding!';
+                    warningSection.style.backgroundColor = '#ffdddd';
+                }
+            } else {
+                warningSection.style.display = 'none';
+            }
+        }
+
+        function updateSimulation(deltaTime) {
+            // Calculate water flow rate based on gate position
+            const gateFlowRate = params.gatePosition * params.maxFlowRate;
+            
+            // Calculate spillway flow rate
+            const spillwayFlowRate = params.spillwayPosition * params.maxFlowRate;
+            
+            // Total water flow rate is the sum of gate and spillway flow
+            params.waterFlowRate = gateFlowRate + spillwayFlowRate;
+
+            // Update water levels based on inflow and outflow with more realistic dynamics
+            // When gate opens, upstream level decreases and downstream increases
+            const volumeChange = (params.inflow - params.waterFlowRate) * deltaTime;
+            const upstreamLevelChange = volumeChange / params.baseArea;
+            
+            // Update upstream water level
+            params.upstreamLevel += upstreamLevelChange;
+            
+            // Ensure upstream water level stays within desired range
+            params.upstreamLevel = Math.max(params.minUpstreamLevel, Math.min(params.maxUpstreamLevel, params.upstreamLevel));
+            
+            // Update downstream water level based on total flow and inverse relationship with upstream
+            // More water flows through gate and spillway = higher downstream level
+            const normalizedUpstreamLevel = (params.upstreamLevel - params.minUpstreamLevel) / 
+                                          (params.maxUpstreamLevel - params.minUpstreamLevel);
+            
+            // Target downstream level based on total flow and upstream level
+            const totalFlowFactor = (params.gatePosition + params.spillwayPosition);
+            const targetDownstreamLevel = totalFlowFactor * 40 + (1 - normalizedUpstreamLevel) * 20;
+            
+            // Gradually adjust downstream level toward target (with some lag)
+            params.downstreamLevel = params.downstreamLevel * 0.95 + targetDownstreamLevel * 0.05;
+            
+            // Ensure downstream level stays within range
+            params.downstreamLevel = Math.max(params.minDownstreamLevel, Math.min(params.maxDownstreamLevel, params.downstreamLevel));
+            
+            // If upstream level is at minimum, increase inflow to prevent further decrease
+            if (params.upstreamLevel <= params.minUpstreamLevel) {
+                params.inflow = Math.max(params.waterFlowRate, params.inflow);
+            }
+            
+            // If upstream level is at maximum, decrease inflow to prevent overflow
+            if (params.upstreamLevel >= params.maxUpstreamLevel) {
+                params.inflow = Math.min(params.waterFlowRate, params.inflow);
+            }
+            
+            // Gradually adjust inflow back to baseline
+            params.inflow = params.inflow * 0.99 + 500 * 0.01;
+
+            // Calculate turbine speed based on water flow through the gate only (not spillway)
+            params.turbineSpeed = gateFlowRate / (params.maxFlowRate / 5);
+            
+            // Apply turbine manipulation if active
+            if (isTurbineManipulationActive) {
+                params.turbineSpeed *= 2.0;
+            }
+
+            // Calculate power generation based on gate position
+            // Power generation starts at 20% gate position and maxes out at 80%
+            let powerFactor = 0;
+            if (params.gatePosition > 0.2) {
+                if (params.gatePosition <= 0.8) {
+                    // Map 0.2-0.8 to 0-1 for power generation
+                    powerFactor = (params.gatePosition - 0.2) / 0.6;
+                } else {
+                    powerFactor = 1.0; // Max power at 80% and above
+                }
+            }
+            
+            // Calculate power generation (MW)
+            params.powerGeneration = powerFactor * 100;
+            
+            // Check for power outage (below 30% of max power)
+            params.isPowerOutage = params.powerGeneration < 30;
+            
+            // Update house lights flicker state
+            updateHouseLights(deltaTime);
+            
+            // Show turbine overload warning if gate position > 80%
+            const turbineWarning = document.getElementById('turbineWarning');
+            if (params.gatePosition > 0.8) {
+                turbineWarning.style.display = 'block';
+            } else {
+                turbineWarning.style.display = 'none';
+            }
+            
+            // Update HMI displays
+            updateHMI();
+        }
+        
+        // Update house lights
+        function updateHouseLights(deltaTime) {
+            houses.forEach(house => {
+                // Update house power status
+                house.hasLight = !params.isPowerOutage;
+                
+                // Update outdoor lights
+                if (!params.isPowerOutage) {
+                    // Normal operation - occasional random flicker
+                    if (Math.random() < 0.05) {
+                        house.outdoorLightLeft.flickerState = !house.outdoorLightLeft.flickerState;
+                    }
+                    if (Math.random() < 0.05) {
+                        house.outdoorLightRight.flickerState = !house.outdoorLightRight.flickerState;
+                    }
+                    
+                    house.outdoorLightLeft.isOn = house.outdoorLightLeft.flickerState;
+                    house.outdoorLightRight.isOn = house.outdoorLightRight.flickerState;
+                } else {
+                    // Power outage - all lights off
+                    house.outdoorLightLeft.isOn = false;
+                    house.outdoorLightRight.isOn = false;
+                }
+            });
+        }
+
+        function updateHMI() {
+            // Display values to show (might be fake during data tampering)
+            let displayValues = {
+                upstreamLevel: params.upstreamLevel,
+                downstreamLevel: params.downstreamLevel,
+                waterFlowRate: params.waterFlowRate,
+                turbineSpeed: params.turbineSpeed,
+                powerGeneration: params.powerGeneration
+            };
+
+            // If data tampering is active, show fake values
+            if (isDataTamperingActive) {
+                displayValues.upstreamLevel = Math.random() * (params.maxUpstreamLevel - params.minUpstreamLevel) + params.minUpstreamLevel;
+                displayValues.downstreamLevel = Math.random() * (params.maxDownstreamLevel - params.minDownstreamLevel) + params.minDownstreamLevel;
+                displayValues.waterFlowRate = Math.random() * params.maxFlowRate;
+                displayValues.turbineSpeed = Math.random() * 5;
+                displayValues.powerGeneration = Math.random() * 100;
+            }
+
+            // Update gauges and values
+            drawGauge(
+                document.getElementById('upstreamLevelGauge'), 
+                displayValues.upstreamLevel, 
+                params.minUpstreamLevel, 
+                params.maxUpstreamLevel
+            );
+            document.getElementById('upstreamLevelValue').textContent = 
+                `${displayValues.upstreamLevel.toFixed(1)} m`;
+                
+            drawGauge(
+                document.getElementById('downstreamLevelGauge'), 
+                displayValues.downstreamLevel, 
+                params.minDownstreamLevel, 
+                params.maxDownstreamLevel
+            );
+            document.getElementById('downstreamLevelValue').textContent = 
+                `${displayValues.downstreamLevel.toFixed(1)} m`;
+
+            drawGauge(
+                document.getElementById('flowRateGauge'), 
+                displayValues.waterFlowRate, 
+                0, 
+                params.maxFlowRate
+            );
+            document.getElementById('flowRateValue').textContent = 
+                `${displayValues.waterFlowRate.toFixed(1)} m³/s`;
+                
+            // Draw power generation gauge with special coloring for the danger zone
+            drawPowerGauge(
+                document.getElementById('powerGenGauge'),
+                displayValues.powerGeneration,
+                0,
+                100,
+                params.gatePosition > 0.8 // Is in danger zone
+            );
+            document.getElementById('powerGenValue').textContent = 
+                `${displayValues.powerGeneration.toFixed(1)} MW`;
+        }
+        
+        function drawPowerGauge(canvas, value, min, max, isDangerZone) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const radius = Math.min(width, height) / 2 * 0.8;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw background circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fill();
+            
+            // Draw gauge arc
+            const startAngle = Math.PI * 0.75;
+            const endAngle = Math.PI * 2.25;
+            const valueAngle = startAngle + (endAngle - startAngle) * ((value - min) / (max - min));
+            
+            // Draw normal zone (0-80%)
+            const normalEndAngle = startAngle + (endAngle - startAngle) * 0.8;
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.9, startAngle, Math.min(valueAngle, normalEndAngle));
+            ctx.lineWidth = radius * 0.2;
+            ctx.strokeStyle = '#00cc00'; // Green for normal operation
+            ctx.stroke();
+            
+            // Draw danger zone if value is in that range
+            if (valueAngle > normalEndAngle) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * 0.9, normalEndAngle, valueAngle);
+                ctx.lineWidth = radius * 0.2;
+                ctx.strokeStyle = '#ff0000'; // Red for danger zone
+                ctx.stroke();
+            }
+            
+            // Draw danger zone indicator (red section from 80-100%)
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.9, normalEndAngle, endAngle);
+            ctx.lineWidth = radius * 0.05;
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)'; // Transparent red for danger zone
+            ctx.stroke();
+            
+            // Draw min and max labels
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Min label
+            const minX = centerX + radius * 0.7 * Math.cos(startAngle);
+            const minY = centerY + radius * 0.7 * Math.sin(startAngle);
+            ctx.fillText(min.toString(), minX, minY);
+            
+            // Max label
+            const maxX = centerX + radius * 0.7 * Math.cos(endAngle);
+            const maxY = centerY + radius * 0.7 * Math.sin(endAngle);
+            ctx.fillText(max.toString(), maxX, maxY);
+            
+            // 80% label (start of danger zone)
+            const dangerX = centerX + radius * 0.7 * Math.cos(normalEndAngle);
+            const dangerY = centerY + radius * 0.7 * Math.sin(normalEndAngle);
+            ctx.fillStyle = '#ff0000';
+            ctx.fillText('80', dangerX, dangerY);
+            
+            // Draw the current value in center
+            ctx.font = 'bold 16px Arial';
+            ctx.fillStyle = isDangerZone ? '#ff0000' : '#000000';
+            ctx.fillText(value.toFixed(1), centerX, centerY);
+            
+            // Add "MW" label
+            ctx.font = '12px Arial';
+            ctx.fillText('MW', centerX, centerY + 20);
+        }
+
+        function drawGauge(canvas, value, min, max) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const radius = Math.min(width, height) / 2 * 0.8;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw background circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fill();
+            
+            // Draw gauge arc
+            const startAngle = Math.PI * 0.75;
+            const endAngle = Math.PI * 2.25;
+            const valueAngle = startAngle + (endAngle - startAngle) * ((value - min) / (max - min));
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.9, startAngle, valueAngle);
+            ctx.lineWidth = radius * 0.2;
+            
+            // Create color based on value
+            let color;
+            const normalizedValue = (value - min) / (max - min);
+            if (normalizedValue < 0.33) {
+                color = '#00ff00'; // Green
+            } else if (normalizedValue < 0.66) {
+                color = '#ffff00'; // Yellow
+            } else {
+                color = '#ff0000'; // Red
+            }
+            
+            ctx.strokeStyle = color;
+            ctx.stroke();
+            
+            // Draw min and max labels
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Min label
+            const minX = centerX + radius * 0.7 * Math.cos(startAngle);
+            const minY = centerY + radius * 0.7 * Math.sin(startAngle);
+            ctx.fillText(min.toString(), minX, minY);
+            
+            // Max label
+            const maxX = centerX + radius * 0.7 * Math.cos(endAngle);
+            const maxY = centerY + radius * 0.7 * Math.sin(endAngle);
+            ctx.fillText(max.toString(), maxX, maxY);
+            
+            // Draw the current value in center
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(value.toFixed(1), centerX, centerY);
+        }
+
+        function onWindowResize() {
+            resizeCanvas();
+            // Redraw all gauges with updated sizes
+            updateHMI();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Calculate delta time
+            const now = Date.now();
+            const deltaTime = (now - lastTime) / 1000; // Convert to seconds
+            lastTime = now;
+            
+            // Update simulation
+            updateSimulation(deltaTime);
+            
+            // Render scene
+            render();
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Set background color (sky)
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Save the context state before applying scaling
+            ctx.save();
+            
+            // Apply scaling transformation to maintain aspect ratio
+            ctx.scale(params.scaleFactor, params.scaleFactor);
+            
+            // Calculate the centered position for the scaled content
+            const scaledWidth = canvas.width / params.scaleFactor;
+            const scaledHeight = canvas.height / params.scaleFactor;
+            const translateX = (scaledWidth - 1600) / 2; // Center horizontally based on reference width
+            
+            // Apply translation to center the content
+            ctx.translate(translateX, 0);
+            
+            // Calculate camera position
+            const camX = Math.sin(cameraAngle) * cameraDistance;
+            const camY = cameraHeight;
+            const camZ = Math.cos(cameraAngle) * cameraDistance;
+            
+            // Draw ground - adjusted for scaling
+            ctx.fillStyle = '#3a7e3a';
+            ctx.beginPath();
+            ctx.moveTo(0, scaledHeight * 0.7);
+            ctx.lineTo(scaledWidth, scaledHeight * 0.7);
+            ctx.lineTo(scaledWidth, scaledHeight);
+            ctx.lineTo(0, scaledHeight);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw dam - use scaled height for positioning
+            const damCenterX = scaledWidth / 3;
+            const damCenterY = scaledHeight * 0.7;
+            
+            // Draw dam wall
+            ctx.fillStyle = '#888888';
+            ctx.beginPath();
+            ctx.rect(damCenterX - damWidth/2, damCenterY - damHeight, damWidth, damHeight);
+            ctx.fill();
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw spillway on the left side of the dam
+            const spillwayWidth = 80;
+            const spillwayX = damCenterX - damWidth/2 - spillwayWidth;
+            
+            // Draw spillway structure
+            ctx.fillStyle = '#777777';
+            ctx.beginPath();
+            ctx.rect(spillwayX, damCenterY - damHeight, spillwayWidth, damHeight);
+            ctx.fill();
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw spillway channel
+            ctx.fillStyle = '#666666';
+            ctx.beginPath();
+            ctx.moveTo(spillwayX, damCenterY - damHeight * 0.9);
+            ctx.lineTo(spillwayX, damCenterY);
+            ctx.lineTo(spillwayX - 40, damCenterY);
+            ctx.lineTo(spillwayX - 40, damCenterY - damHeight * 0.7);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw dam top
+            ctx.fillStyle = '#666666';
+            ctx.beginPath();
+            ctx.rect(damCenterX - damWidth/2 - 10, damCenterY - damHeight - 10, damWidth + 20, 10);
+            ctx.fill();
+            
+            // Draw upstream water (reservoir)
+            // Scale water level to be proportional to the dam height
+            const normalizedUpstreamLevel = (params.upstreamLevel - params.minUpstreamLevel) / 
+                                          (params.maxUpstreamLevel - params.minUpstreamLevel);
+            const upstreamWaterHeight = (0.75 + normalizedUpstreamLevel * 0.25) * damHeight;
+            
+            ctx.fillStyle = 'rgba(0, 153, 255, 0.7)';
+            
+            // Draw reservoir with waves
+            ctx.beginPath();
+            ctx.moveTo(damCenterX - damWidth/2, damCenterY - upstreamWaterHeight);
+            
+            // Draw wavy water surface
+            const time = Date.now() * 0.001;
+            for (let x = 0; x < reservoirLength; x += 15) {
+                const waveHeight = Math.sin(x * 0.03 + time) * 5;
+                ctx.lineTo(
+                    damCenterX - damWidth/2 - x, 
+                    damCenterY - upstreamWaterHeight + waveHeight
+                );
+            }
+            
+            // Complete the reservoir shape
+            ctx.lineTo(damCenterX - damWidth/2 - reservoirLength, damCenterY);
+            ctx.lineTo(damCenterX - damWidth/2, damCenterY);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw water level indicator on upstream side
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(damCenterX - damWidth/2 - 30, damCenterY - upstreamWaterHeight);
+            ctx.lineTo(damCenterX - damWidth/2 - 20, damCenterY - upstreamWaterHeight);
+            ctx.stroke();
+            
+            // Add upstream water level text
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${params.upstreamLevel.toFixed(1)}m`, damCenterX - damWidth/2 - 35, damCenterY - upstreamWaterHeight + 5);
+            
+            // Draw downstream water
+            // Scale downstream water level to be proportional to the dam height
+            const normalizedDownstreamLevel = (params.downstreamLevel - params.minDownstreamLevel) / 
+                                            (params.maxDownstreamLevel - params.minDownstreamLevel);
+            const downstreamWaterHeight = normalizedDownstreamLevel * damHeight * 0.5;
+            
+            // Store flood level for town flooding calculation
+            const floodLevel = downstreamWaterHeight;
+            
+            ctx.fillStyle = 'rgba(0, 119, 204, 0.7)';
+            
+            // Draw downstream with waves - shorter to make room for town
+            ctx.beginPath();
+            ctx.moveTo(damCenterX + damWidth/2, damCenterY - downstreamWaterHeight);
+            
+            // Draw wavy water surface
+            for (let x = 0; x < downstreamLength; x += 15) {
+                const waveHeight = Math.sin(x * 0.05 + time * 2) * 4;
+                ctx.lineTo(
+                    damCenterX + damWidth/2 + x, 
+                    damCenterY - downstreamWaterHeight + waveHeight
+                );
+            }
+            
+            // Complete the downstream shape
+            ctx.lineTo(damCenterX + damWidth/2 + downstreamLength, damCenterY);
+            ctx.lineTo(damCenterX + damWidth/2, damCenterY);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw water level indicator on downstream side
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(damCenterX + damWidth/2 + 20, damCenterY - downstreamWaterHeight);
+            ctx.lineTo(damCenterX + damWidth/2 + 30, damCenterY - downstreamWaterHeight);
+            ctx.stroke();
+            
+            // Add downstream water level text
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${params.downstreamLevel.toFixed(1)}m`, damCenterX + damWidth/2 + 35, damCenterY - downstreamWaterHeight + 5);
+            
+            // Draw water flow from gate if gate is open - make flow more visible
+            if (params.gatePosition > 0.05) {
+                ctx.fillStyle = 'rgba(0, 170, 255, 0.8)';
+                const flowWidth = params.gatePosition * 60;
+                
+                // Position the gate higher on the dam
+                const gateY = damCenterY - damHeight/3;
+                
+                ctx.beginPath();
+                ctx.moveTo(damCenterX, gateY);
+                ctx.lineTo(damCenterX + damWidth/2 + 40, damCenterY - downstreamWaterHeight);
+                ctx.lineTo(damCenterX + damWidth/2 + 40, damCenterY - downstreamWaterHeight + flowWidth);
+                ctx.lineTo(damCenterX, gateY + flowWidth);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // Draw water flow from spillway if spillway is open
+            if (params.spillwayPosition > 0.05) {
+                ctx.fillStyle = 'rgba(0, 170, 255, 0.8)';
+                const spillwayFlowWidth = params.spillwayPosition * 60;
+                
+                // Spillway flow path
+                ctx.beginPath();
+                ctx.moveTo(spillwayX, damCenterY - damHeight * 0.9);
+                ctx.lineTo(spillwayX - 40, damCenterY - damHeight * 0.7);
+                ctx.lineTo(spillwayX - 40, damCenterY - damHeight * 0.7 + spillwayFlowWidth);
+                ctx.lineTo(spillwayX, damCenterY - damHeight * 0.9 + spillwayFlowWidth);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Add water splash at bottom of spillway
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                for (let i = 0; i < 10; i++) {
+                    const splashSize = Math.random() * 8 * params.spillwayPosition;
+                    const splashX = spillwayX - 40 - Math.random() * 20;
+                    const splashY = damCenterY - Math.random() * 10;
+                    
+                    ctx.beginPath();
+                    ctx.arc(splashX, splashY, splashSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            // Draw power house
+            ctx.fillStyle = '#996633';
+            ctx.beginPath();
+            ctx.rect(damCenterX + damWidth/2 - 50, damCenterY - 60, 100, 60);
+            ctx.fill();
+            
+            // Draw power house roof
+            ctx.fillStyle = '#883322';
+            ctx.beginPath();
+            ctx.moveTo(damCenterX + damWidth/2 - 60, damCenterY - 60);
+            ctx.lineTo(damCenterX + damWidth/2 + 60, damCenterY - 60);
+            ctx.lineTo(damCenterX + damWidth/2, damCenterY - 90);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw turbine
+            const turbineX = damCenterX + damWidth/2;
+            const turbineY = damCenterY - 30;
+            const turbineRadius = 20;
+            
+            ctx.save();
+            ctx.translate(turbineX, turbineY);
+            
+            // Draw turbine housing
+            ctx.fillStyle = '#555555';
+            ctx.beginPath();
+            ctx.arc(0, 0, turbineRadius + 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw turbine blades
+            ctx.fillStyle = '#888888';
+            const bladeCount = 8;
+            const rotationAngle = Date.now() * 0.001 * params.turbineSpeed * 5;
+            
+            for (let i = 0; i < bladeCount; i++) {
+                const angle = (Math.PI * 2 / bladeCount) * i + rotationAngle;
+                
+                ctx.save();
+                ctx.rotate(angle);
+                ctx.fillRect(-3, -turbineRadius, 6, turbineRadius);
+                ctx.restore();
+            }
+            
+            ctx.restore();
+            
+            // Draw power lines connecting dam to town
+            const groundY = damCenterY;
+            
+            // Recalculate power line positions based on current scaled dimensions
+            const powerHouseX = damCenterX + damWidth/2;
+            const townStartX = damCenterX + damWidth/2 + downstreamLength + 20;
+            
+            // Draw power line poles
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 3;
+            
+            // Calculate pole positions dynamically
+            const poleCount = powerLinePoles.length;
+            const poleDist = (townStartX - powerHouseX) / (poleCount - 1);
+            
+            powerLinePoles.forEach((pole, index) => {
+                // Update pole x position based on current dimensions
+                const poleX = powerHouseX + (poleDist * index);
+                
+                // Draw pole
+                ctx.beginPath();
+                ctx.moveTo(poleX, groundY);
+                ctx.lineTo(poleX, groundY - pole.height);
+                ctx.stroke();
+                
+                // Draw cross beam
+                ctx.beginPath();
+                ctx.moveTo(poleX - 15, groundY - pole.height + 10);
+                ctx.lineTo(poleX + 15, groundY - pole.height + 10);
+                ctx.stroke();
+                
+                // Connect to next pole with power lines
+                if (index < powerLinePoles.length - 1) {
+                    const nextPoleX = powerHouseX + (poleDist * (index + 1));
+                    
+                    // Draw two power lines with slight sag
+                    for (let lineOffset = -5; lineOffset <= 5; lineOffset += 10) {
+                        ctx.beginPath();
+                        ctx.moveTo(poleX, groundY - pole.height + 10 + lineOffset);
+                        
+                        // Calculate control point for curve (to create sag)
+                        const ctrlX = (poleX + nextPoleX) / 2;
+                        const ctrlY = groundY - pole.height + 20 + lineOffset;
+                        
+                        ctx.quadraticCurveTo(
+                            ctrlX, ctrlY,
+                            nextPoleX, groundY - pole.height + 10 + lineOffset
+                        );
+                        
+                        ctx.stroke();
+                    }
+                }
+            });
+            
+            // Draw town
+            const townY = damCenterY;
+            
+            // Draw road
+            ctx.fillStyle = '#555555';
+            ctx.beginPath();
+            ctx.rect(townStartX, townY - 5, townWidth, 10);
+            ctx.fill();
+            
+            // Draw houses
+            houses.forEach(house => {
+                const houseX = townStartX + house.x;
+                const houseBaseY = townY;
+                
+                // Check if house should be flooded based on new combined flow criteria
+                // Houses start flooding when either slider is at 98% or combined > 98%
+                const partialFloodThreshold = 98; // 98% of either control
+                const totalFloodThreshold = 140; // 140% combined for complete flooding
+                
+                // Calculate flooding level based on total flow percentage
+                let floodLevel = 0;
+                if (params.totalFlowPercentage > partialFloodThreshold) {
+                    // Map from 98% to 140% to 0-100% flooding
+                    const floodPercentage = Math.min(100, (params.totalFlowPercentage - partialFloodThreshold) / 
+                                                   (totalFloodThreshold - partialFloodThreshold) * 100);
+                    floodLevel = (floodPercentage / 100) * house.height;
+                    house.flooded = floodLevel > 0;
+                } else {
+                    house.flooded = false;
+                }
+                
+                // Draw house base
+                ctx.fillStyle = house.color;
+                ctx.beginPath();
+                ctx.rect(houseX, houseBaseY - house.height, house.width, house.height);
+                ctx.fill();
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Draw roof
+                ctx.fillStyle = house.roofColor;
+                ctx.beginPath();
+                ctx.moveTo(houseX - 5, houseBaseY - house.height);
+                ctx.lineTo(houseX + house.width + 5, houseBaseY - house.height);
+                ctx.lineTo(houseX + house.width/2, houseBaseY - house.height - house.roofHeight);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                // Draw door
+                ctx.fillStyle = '#553322';
+                const doorWidth = house.width * 0.3;
+                const doorHeight = house.height * 0.4;
+                ctx.beginPath();
+                ctx.rect(houseX + (house.width - doorWidth)/2, 
+                         houseBaseY - doorHeight, 
+                         doorWidth, 
+                         doorHeight);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Draw windows with light based on power status
+                const windowSize = house.width * 0.25;
+                const windowY = houseBaseY - house.height * 0.7;
+                
+                // Window color depends on power status
+                ctx.fillStyle = house.hasLight ? 
+                    house.windowColor : // Lit windows
+                    'rgba(40, 40, 60, 0.6)'; // Dark windows during outage
+                
+                // Left window
+                ctx.beginPath();
+                ctx.rect(houseX + house.width * 0.2 - windowSize/2, 
+                         windowY, 
+                         windowSize, 
+                         windowSize);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Right window
+                ctx.beginPath();
+                ctx.rect(houseX + house.width * 0.8 - windowSize/2, 
+                         windowY, 
+                         windowSize, 
+                         windowSize);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Add window light glow effect if house has power
+                if (house.hasLight) {
+                    // Left window glow
+                    const leftWindowX = houseX + house.width * 0.2;
+                    const gradient1 = ctx.createRadialGradient(
+                        leftWindowX, windowY + windowSize/2, 0,
+                        leftWindowX, windowY + windowSize/2, windowSize
+                    );
+                    gradient1.addColorStop(0, 'rgba(255, 255, 200, 0.4)');
+                    gradient1.addColorStop(1, 'rgba(255, 255, 200, 0)');
+                    
+                    ctx.fillStyle = gradient1;
+                    ctx.beginPath();
+                    ctx.arc(leftWindowX, windowY + windowSize/2, windowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Right window glow
+                    const rightWindowX = houseX + house.width * 0.8;
+                    const gradient2 = ctx.createRadialGradient(
+                        rightWindowX, windowY + windowSize/2, 0,
+                        rightWindowX, windowY + windowSize/2, windowSize
+                    );
+                    gradient2.addColorStop(0, 'rgba(255, 255, 200, 0.4)');
+                    gradient2.addColorStop(1, 'rgba(255, 255, 200, 0)');
+                    
+                    ctx.fillStyle = gradient2;
+                    ctx.beginPath();
+                    ctx.arc(rightWindowX, windowY + windowSize/2, windowSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Draw outdoor lights on houses
+                // Left outdoor light
+                if (!house.flooded) {
+                    drawOutdoorLight(ctx, 
+                                    houseX + house.width * house.outdoorLightLeft.x, 
+                                    houseBaseY - house.height * house.outdoorLightLeft.y, 
+                                    house.outdoorLightLeft.isOn && house.hasLight);
+                }
+                
+                // Right outdoor light
+                if (!house.flooded) {
+                    drawOutdoorLight(ctx, 
+                                    houseX + house.width * house.outdoorLightRight.x, 
+                                    houseBaseY - house.height * house.outdoorLightRight.y, 
+                                    house.outdoorLightRight.isOn && house.hasLight);
+                }
+                
+                // Draw flood water if house is flooded
+                if (house.flooded) {
+                    ctx.fillStyle = 'rgba(0, 119, 204, 0.7)';
+                    ctx.beginPath();
+                    ctx.rect(houseX - 10, 
+                             houseBaseY - floodLevel, 
+                             house.width + 20, 
+                             floodLevel);
+                    ctx.fill();
+                    
+                    // Add some wave details to the flood water
+                    ctx.strokeStyle = 'rgba(0, 170, 255, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    const waveTop = houseBaseY - floodLevel;
+                    for (let wx = houseX - 10; wx < houseX + house.width + 20; wx += 10) {
+                        const waveHeight = Math.sin(wx * 0.1 + time * 3) * 2;
+                        ctx.lineTo(wx, waveTop + waveHeight);
+                    }
+                    
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw power outage warning if applicable
+            if (params.isPowerOutage) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.beginPath();
+                ctx.rect(townStartX - 20, townY - 120, townWidth + 40, 30);
+                ctx.fill();
+                
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = '#ff0000';
+                ctx.textAlign = 'center';
+                ctx.fillText('POWER OUTAGE', townStartX + townWidth/2, townY - 100);
+            }
+            
+            // Restore the context state after rendering
+            ctx.restore();
+        }
+        
+        // Helper function to draw outdoor light
+        function drawOutdoorLight(ctx, x, y, isOn) {
+            // Draw light fixture
+            ctx.fillStyle = '#333333';
+            ctx.beginPath();
+            ctx.rect(x - 3, y - 2, 6, 4);
+            ctx.fill();
+            
+            // Draw light bulb
+            ctx.beginPath();
+            ctx.arc(x, y + 4, 3, 0, Math.PI * 2);
+            
+            // Light color based on power state
+            if (isOn) {
+                // Draw light glow
+                const gradient = ctx.createRadialGradient(
+                    x, y + 4, 0,
+                    x, y + 4, 15
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 150, 0.9)');
+                gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y + 4, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw light cone downward
+                ctx.beginPath();
+                ctx.moveTo(x - 2, y + 4);
+                ctx.lineTo(x - 12, y + 25);
+                ctx.lineTo(x + 12, y + 25);
+                ctx.lineTo(x + 2, y + 4);
+                ctx.closePath();
+                
+                const coneGradient = ctx.createLinearGradient(x, y + 4, x, y + 25);
+                coneGradient.addColorStop(0, 'rgba(255, 255, 150, 0.6)');
+                coneGradient.addColorStop(1, 'rgba(255, 255, 150, 0)');
+                ctx.fillStyle = coneGradient;
+                ctx.fill();
+                
+                // Draw the actual light bulb
+                ctx.fillStyle = 'rgba(255, 255, 150, 0.9)';
+                ctx.beginPath();
+                ctx.arc(x, y + 4, 3, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Unlit bulb
+                ctx.fillStyle = '#555555';
+                ctx.fill();
+            }
+        }
+
+        // Call resizeCanvas once at startup to initialize canvas dimensions
+        resizeCanvas();
+    </script>
+</body>
+</html>
